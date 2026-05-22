@@ -1,3 +1,3 @@
 flet
 google-genai
-requests
+pillow
