@@ -1,0 +1,8 @@
+[project]
+name = "shonen_ai"
+version = "0.1.0"
+dependencies = [
+    "flet",
+    "google-genai",
+    "requests"
+]
