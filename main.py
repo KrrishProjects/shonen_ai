@@ -179,9 +179,6 @@ def main(page: ft.Page):
 
             page.update()
 
-    file_picker = ft.FilePicker()
-    file_picker.on_result = on_dialog_result
-    page.overlay.append(file_picker)
 
     input_box = ft.TextField(
         hint_text="Ask Shonen AI...",
@@ -295,20 +292,11 @@ def main(page: ft.Page):
     bottom_bar = ft.Container(
         content=ft.Row(
             controls=[
-                ft.IconButton(
-                    icon=ft.Icons.IMAGE,
-                    icon_color="white",
-                    tooltip="Upload image",
-                    on_click=lambda e: file_picker.pick_files(
-                        allow_multiple=False,
-                        allowed_extensions=[
-                            "png",
-                            "jpg",
-                            "jpeg",
-                            "webp",
-                        ],
-                    ),
-                ),
+ft.IconButton(
+    icon=ft.Icons.IMAGE,
+    icon_color="gray",
+    tooltip="Image upload coming soon",
+),
                 input_box,
                 ft.IconButton(
                     icon=ft.Icons.ARROW_UPWARD_ROUNDED,
