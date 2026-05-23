@@ -1,17 +1,17 @@
-import threading
 import flet as ft
 from google import genai
 
 API_KEY = "AIzaSyC2lxp24-81u9HWkLYJ4cV4JcdXIE3CTiU"
 
-client = genai.Client(api_key=API_KEY)
-
 
 def ask_ai(prompt):
+    client = genai.Client(api_key=API_KEY)
+
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=prompt,
     )
+
     return response.text or "No response received."
 
 
@@ -21,236 +21,150 @@ def main(page: ft.Page):
     page.bgcolor = "#0b0f19"
     page.padding = 0
 
-    chat_sessions = {}
-    current_chat = ["Chat 1"]
-
     messages = ft.Column(
-        spacing=16,
-        scroll="auto",
+        spacing=12,
         expand=True,
-    )
-
-    history_column = ft.Column(
-        spacing=8,
         scroll="auto",
     )
-
-    def create_bubble(text, is_user=False):
-        return ft.Row(
-            alignment=ft.MainAxisAlignment.END if is_user else ft.MainAxisAlignment.START,
-            controls=[
-                ft.Container(
-                    content=ft.Markdown(
-                        text,
-                        extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
-                        code_theme="atom-one-dark",
-                        selectable=True,
-                    ),
-                    bgcolor="#2563eb" if is_user else "#1e293b",
-                    padding=14,
-                    border_radius=18,
-                    width=300,
-                )
-            ],
-        )
-
-    def load_chat(chat_name):
-        current_chat[0] = chat_name
-        messages.controls.clear()
-
-        if chat_name in chat_sessions:
-            for item in chat_sessions[chat_name]:
-                messages.controls.append(item)
-
-        page.update()
-
-    def add_history_button(chat_name):
-        history_column.controls.append(
-            ft.IconButton(
-                icon=ft.Icons.CHAT_BUBBLE_OUTLINE,
-                icon_color="white",
-                tooltip=chat_name,
-                on_click=lambda e, name=chat_name: load_chat(name),
-            )
-        )
-
-    def new_chat(e=None):
-        chat_name = f"Chat {len(chat_sessions) + 1}"
-        chat_sessions[chat_name] = []
-        current_chat[0] = chat_name
-
-        add_history_button(chat_name)
-
-        messages.controls.clear()
-        page.update()
-
-    chat_sessions["Chat 1"] = []
-    add_history_button("Chat 1")
 
     input_box = ft.TextField(
         hint_text="Ask Shonen AI...",
-        border_color="transparent",
+        expand=True,
         bgcolor="#111827",
         color="white",
-        cursor_color="white",
-        border_radius=28,
-        expand=True,
-        text_size=15,
-        on_submit=lambda e: send_message(e),
+        border_color="#334155",
+        border_radius=20,
     )
 
-    send_button = ft.IconButton(
-        icon=ft.Icons.ARROW_UPWARD_ROUNDED,
-        icon_color="white",
-        bgcolor="#2563eb",
-    )
-
-    def finish_ai_response(prompt, typing_indicator):
-        try:
-            answer = ask_ai(prompt)
-        except Exception as ex:
-            answer = f"Error: {ex}"
-
-        if typing_indicator in messages.controls:
-            messages.controls.remove(typing_indicator)
-
-        ai_bubble = create_bubble(answer)
-        messages.controls.append(ai_bubble)
-
-        chat_sessions[current_chat[0]] = messages.controls.copy()
-
-        input_box.disabled = False
-        send_button.disabled = False
-
+    def add_message(text, user=False):
+        messages.controls.append(
+            ft.Row(
+                alignment=ft.MainAxisAlignment.END if user else ft.MainAxisAlignment.START,
+                controls=[
+                    ft.Container(
+                        content=ft.Text(
+                            text,
+                            color="white",
+                            size=15,
+                            selectable=True,
+                        ),
+                        bgcolor="#2563eb" if user else "#1e293b",
+                        padding=12,
+                        border_radius=16,
+                        width=300,
+                    )
+                ],
+            )
+        )
         page.update()
 
-    def send_message(e):
+    def send_message(e=None):
         prompt = input_box.value.strip()
 
         if not prompt:
             return
 
-        user_bubble = create_bubble(prompt, True)
-        messages.controls.append(user_bubble)
-
         input_box.value = ""
-        input_box.disabled = True
-        send_button.disabled = True
+        add_message(prompt, True)
 
-        chat_sessions[current_chat[0]] = messages.controls.copy()
-
-        typing_indicator = ft.Row(
-            alignment=ft.MainAxisAlignment.START,
-            controls=[
-                ft.Container(
-                    content=ft.Text(
-                        "Shonen AI is thinking...",
-                        color="gray",
-                        italic=True,
-                    ),
-                    bgcolor="#111827",
-                    padding=12,
-                    border_radius=18,
-                )
-            ],
+        loading = ft.Text(
+            "Shonen AI is thinking...",
+            color="gray",
+            italic=True,
         )
 
-        messages.controls.append(typing_indicator)
+        messages.controls.append(loading)
         page.update()
 
-        threading.Thread(
-            target=finish_ai_response,
-            args=(prompt, typing_indicator),
-            daemon=True,
-        ).start()
+        try:
+            answer = ask_ai(prompt)
+        except Exception as ex:
+            answer = "Error: " + str(ex)
 
-    send_button.on_click = send_message
+        if loading in messages.controls:
+            messages.controls.remove(loading)
+
+        add_message(answer, False)
+
+    send_button = ft.IconButton(
+        icon=ft.Icons.SEND,
+        icon_color="white",
+        bgcolor="#2563eb",
+        on_click=send_message,
+    )
 
     sidebar = ft.Container(
-        width=76,
+        width=70,
         bgcolor="#0f172a",
-        padding=8,
+        padding=10,
         content=ft.Column(
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             controls=[
                 ft.Icon(
                     ft.Icons.AUTO_AWESOME,
                     color="#60a5fa",
-                    size=32,
+                    size=30,
                 ),
-                ft.Container(height=16),
+                ft.Container(height=20),
                 ft.IconButton(
                     icon=ft.Icons.ADD,
                     icon_color="white",
                     bgcolor="#2563eb",
                     tooltip="New Chat",
-                    on_click=new_chat,
+                    on_click=lambda e: messages.controls.clear() or page.update(),
                 ),
-                ft.Divider(color="#1e293b"),
-                history_column,
             ],
         ),
     )
 
     top_bar = ft.Container(
-        content=ft.Row(
-            controls=[
-                ft.Text(
-                    "Shonen AI",
-                    size=28,
-                    weight="bold",
-                    color="white",
-                ),
-            ],
+        bgcolor="#0b0f19",
+        padding=16,
+        content=ft.Text(
+            "Shonen AI",
+            color="white",
+            size=26,
+            weight="bold",
         ),
-        padding=18,
     )
 
     bottom_bar = ft.Container(
+        bgcolor="#0f172a",
+        padding=12,
         content=ft.Row(
             controls=[
                 input_box,
                 send_button,
-            ],
+            ]
         ),
-        padding=12,
-        bgcolor="#0f172a",
-        border_radius=28,
     )
 
-    chat_area = ft.Container(
+    chat_panel = ft.Container(
         expand=True,
-        gradient=ft.LinearGradient(
-            begin=ft.Alignment(-1, -1),
-            end=ft.Alignment(1, 1),
-            colors=[
-                "#0b0f19",
-                "#111827",
-                "#172554",
-            ],
-        ),
+        bgcolor="#0b0f19",
         content=ft.Column(
+            expand=True,
+            spacing=0,
             controls=[
                 top_bar,
                 ft.Container(
                     content=messages,
                     expand=True,
-                    padding=16,
+                    padding=14,
                 ),
                 bottom_bar,
             ],
-            expand=True,
         ),
     )
 
     page.add(
         ft.Row(
-            controls=[
-                sidebar,
-                chat_area,
-            ],
             expand=True,
             spacing=0,
+            controls=[
+                sidebar,
+                chat_panel,
+            ],
         )
     )
 

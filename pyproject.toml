@@ -5,4 +5,3 @@ dependencies = [
     "flet==0.28.3",
     "google-genai"
 ]
-
