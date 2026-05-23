@@ -30,7 +30,7 @@ jobs:
 
       - name: Build APK
         run: |
-         yes | flet build apk
+         yes | flet build apk --clear-cache --build-number ${{ github.run_number }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
