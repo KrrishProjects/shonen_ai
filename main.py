@@ -1,30 +1,18 @@
+import threading
 import flet as ft
 from google import genai
-from PIL import Image
 
-API_KEY = "AIzaSyBR8O2jdWyToJMVzV9NJo0BrLUJJyYZSPI"
+API_KEY = "AIzaSyC2lxp24-81u9HWkLYJ4cV4JcdXIE3CTiU"
 
 client = genai.Client(api_key=API_KEY)
 
 
-def ask_ai(prompt, image_path=None):
-    if image_path:
-        img = Image.open(image_path)
-
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[
-                prompt,
-                img,
-            ],
-        )
-    else:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-        )
-
-    return response.text
+def ask_ai(prompt):
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
+    )
+    return response.text or "No response received."
 
 
 def main(page: ft.Page):
@@ -35,16 +23,15 @@ def main(page: ft.Page):
 
     chat_sessions = {}
     current_chat = ["Chat 1"]
-    selected_image = {"path": None}
 
     messages = ft.Column(
-        spacing=20,
+        spacing=16,
         scroll="auto",
         expand=True,
     )
 
     history_column = ft.Column(
-        spacing=10,
+        spacing=8,
         scroll="auto",
     )
 
@@ -60,46 +47,9 @@ def main(page: ft.Page):
                         selectable=True,
                     ),
                     bgcolor="#2563eb" if is_user else "#1e293b",
-                    padding=15,
-                    border_radius=20,
-                    width=320,
-                )
-            ],
-        )
-
-    def create_image_user_bubble(text, image_path):
-        image_controls = []
-
-        if image_path:
-            image_controls.append(
-                ft.Image(
-                    src=image_path,
-                    width=220,
-                    height=160,
-                )
-            )
-
-        image_controls.append(
-            ft.Markdown(
-                text,
-                extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
-                code_theme="atom-one-dark",
-                selectable=True,
-            )
-        )
-
-        return ft.Row(
-            alignment=ft.MainAxisAlignment.END,
-            controls=[
-                ft.Container(
-                    content=ft.Column(
-                        spacing=10,
-                        controls=image_controls,
-                    ),
-                    bgcolor="#2563eb",
-                    padding=15,
-                    border_radius=20,
-                    width=320,
+                    padding=14,
+                    border_radius=18,
+                    width=300,
                 )
             ],
         )
@@ -114,71 +64,28 @@ def main(page: ft.Page):
 
         page.update()
 
-    def new_chat(e):
-        chat_name = f"Chat {len(chat_sessions) + 1}"
-
-        chat_sessions[chat_name] = []
-        current_chat[0] = chat_name
-        selected_image["path"] = None
-
+    def add_history_button(chat_name):
         history_column.controls.append(
-            ft.TextButton(
-                content=ft.Text(
-                    chat_name,
-                    color="white",
-                ),
+            ft.IconButton(
+                icon=ft.Icons.CHAT_BUBBLE_OUTLINE,
+                icon_color="white",
+                tooltip=chat_name,
                 on_click=lambda e, name=chat_name: load_chat(name),
             )
         )
 
+    def new_chat(e=None):
+        chat_name = f"Chat {len(chat_sessions) + 1}"
+        chat_sessions[chat_name] = []
+        current_chat[0] = chat_name
+
+        add_history_button(chat_name)
+
         messages.controls.clear()
         page.update()
 
-    def on_dialog_result(e):
-        if e.files:
-            file = e.files[0]
-
-            selected_image["path"] = file.path if file.path else None
-
-            if selected_image["path"]:
-                messages.controls.append(
-                    ft.Container(
-                        content=ft.Column(
-                            spacing=10,
-                            controls=[
-                                ft.Text(
-                                    "📷 Image selected",
-                                    color="gray",
-                                    size=13,
-                                ),
-                                ft.Image(
-                                    src=selected_image["path"],
-                                    width=220,
-                                    height=160,
-                                ),
-                            ],
-                        ),
-                        bgcolor="#111827",
-                        padding=12,
-                        border_radius=18,
-                    )
-                )
-            else:
-                messages.controls.append(
-                    ft.Container(
-                        content=ft.Text(
-                            "📷 Image selected. Preview may not be available in web mode.",
-                            color="gray",
-                            size=13,
-                        ),
-                        bgcolor="#111827",
-                        padding=12,
-                        border_radius=18,
-                    )
-                )
-
-            page.update()
-
+    chat_sessions["Chat 1"] = []
+    add_history_button("Chat 1")
 
     input_box = ft.TextField(
         hint_text="Ask Shonen AI...",
@@ -186,54 +93,21 @@ def main(page: ft.Page):
         bgcolor="#111827",
         color="white",
         cursor_color="white",
-        border_radius=30,
+        border_radius=28,
         expand=True,
-        text_size=16,
+        text_size=15,
+        on_submit=lambda e: send_message(e),
     )
 
-    def send_message(e):
-        prompt = input_box.value.strip()
+    send_button = ft.IconButton(
+        icon=ft.Icons.ARROW_UPWARD_ROUNDED,
+        icon_color="white",
+        bgcolor="#2563eb",
+    )
 
-        if not prompt and not selected_image["path"]:
-            return
-
-        if not prompt and selected_image["path"]:
-            prompt = "Describe this image."
-
-        image_path = selected_image["path"]
-
-        if image_path:
-            user_bubble = create_image_user_bubble(prompt, image_path)
-        else:
-            user_bubble = create_bubble(prompt, True)
-
-        messages.controls.append(user_bubble)
-
-        input_box.value = ""
-        chat_sessions[current_chat[0]] = messages.controls.copy()
-
-        typing_indicator = ft.Row(
-            alignment=ft.MainAxisAlignment.START,
-            controls=[
-                ft.Container(
-                    content=ft.Text(
-                        "Shonen AI is typing...",
-                        color="gray",
-                        italic=True,
-                    ),
-                    bgcolor="#111827",
-                    padding=12,
-                    border_radius=20,
-                )
-            ],
-        )
-
-        messages.controls.append(typing_indicator)
-        page.update()
-
+    def finish_ai_response(prompt, typing_indicator):
         try:
-            answer = ask_ai(prompt, image_path)
-
+            answer = ask_ai(prompt)
         except Exception as ex:
             answer = f"Error: {ex}"
 
@@ -245,23 +119,66 @@ def main(page: ft.Page):
 
         chat_sessions[current_chat[0]] = messages.controls.copy()
 
-        selected_image["path"] = None
+        input_box.disabled = False
+        send_button.disabled = False
 
         page.update()
 
+    def send_message(e):
+        prompt = input_box.value.strip()
+
+        if not prompt:
+            return
+
+        user_bubble = create_bubble(prompt, True)
+        messages.controls.append(user_bubble)
+
+        input_box.value = ""
+        input_box.disabled = True
+        send_button.disabled = True
+
+        chat_sessions[current_chat[0]] = messages.controls.copy()
+
+        typing_indicator = ft.Row(
+            alignment=ft.MainAxisAlignment.START,
+            controls=[
+                ft.Container(
+                    content=ft.Text(
+                        "Shonen AI is thinking...",
+                        color="gray",
+                        italic=True,
+                    ),
+                    bgcolor="#111827",
+                    padding=12,
+                    border_radius=18,
+                )
+            ],
+        )
+
+        messages.controls.append(typing_indicator)
+        page.update()
+
+        threading.Thread(
+            target=finish_ai_response,
+            args=(prompt, typing_indicator),
+            daemon=True,
+        ).start()
+
+    send_button.on_click = send_message
+
     sidebar = ft.Container(
-        width=90,
+        width=76,
         bgcolor="#0f172a",
-        padding=10,
+        padding=8,
         content=ft.Column(
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             controls=[
                 ft.Icon(
                     ft.Icons.AUTO_AWESOME,
                     color="#60a5fa",
-                    size=35,
+                    size=32,
                 ),
-                ft.Container(height=20),
+                ft.Container(height=16),
                 ft.IconButton(
                     icon=ft.Icons.ADD,
                     icon_color="white",
@@ -284,31 +201,21 @@ def main(page: ft.Page):
                     weight="bold",
                     color="white",
                 ),
-            ]
+            ],
         ),
-        padding=20,
+        padding=18,
     )
 
     bottom_bar = ft.Container(
         content=ft.Row(
             controls=[
-ft.IconButton(
-    icon=ft.Icons.IMAGE,
-    icon_color="gray",
-    tooltip="Image upload coming soon",
-),
                 input_box,
-                ft.IconButton(
-                    icon=ft.Icons.ARROW_UPWARD_ROUNDED,
-                    icon_color="white",
-                    bgcolor="#2563eb",
-                    on_click=send_message,
-                ),
-            ]
+                send_button,
+            ],
         ),
-        padding=15,
+        padding=12,
         bgcolor="#0f172a",
-        border_radius=30,
+        border_radius=28,
     )
 
     chat_area = ft.Container(
@@ -328,7 +235,7 @@ ft.IconButton(
                 ft.Container(
                     content=messages,
                     expand=True,
-                    padding=20,
+                    padding=16,
                 ),
                 bottom_bar,
             ],
@@ -343,6 +250,7 @@ ft.IconButton(
                 chat_area,
             ],
             expand=True,
+            spacing=0,
         )
     )
 
