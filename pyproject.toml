@@ -2,6 +2,5 @@
 name = "shonen_ai"
 version = "0.1.0"
 dependencies = [
-    "flet==0.28.3",
-    "google-genai"
+    "flet==0.28.3"
 ]
